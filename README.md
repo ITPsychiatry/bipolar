@@ -10,7 +10,7 @@ We assume users is familiar with RStudio and it's installed on her machine.
 
 ```
 git clone <url-of-the-final-repository>
-cd bipolar-preprocessing
+cd bipolar
 ```
 
 2. Build the package
@@ -30,4 +30,4 @@ devtools::install()
 
 ## Example use case
 
-There's a rmarkdown file that shows what operations can be performed on the sample data which is attached to the package. In the root directory of the package find the _example_use_case.Rmd_ file and open it.
+For examples how the functions from the package may be used please see the vignettes.
