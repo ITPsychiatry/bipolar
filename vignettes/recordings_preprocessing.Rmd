@@ -1,0 +1,144 @@
+---
+title: "Example preprocessing steps with mobile recording data"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Example preprocessing steps with mobile recording data}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>",
+  echo = TRUE, message = FALSE, warning = FALSE
+)
+```
+
+
+```{r}
+library(bipolarPreprocessing)
+library(dplyr)
+```
+
+
+### Get sample data
+
+```{r}
+visits <- get_sample_visits()
+mobile_recordings <- get_sample_mobile_recordings()
+mobile_chunks <- get_sample_mobile_chunks()
+```
+
+### What about duplicates?
+
+Check mobile recordings dataset by name (audio file):
+```{r}
+recordings_duplicates <- mobile_recordings %>%
+  count(name) %>% 
+  arrange(-n) %>% 
+  filter(n > 1) %>% 
+  pull(name)
+
+mobile_recordings %>% filter(name %in% recordings_duplicates)
+```
+
+Check chunks by chunk id and frame no:
+
+```{r}
+chunks_duplicates <- mobile_chunks %>% 
+  count(dw_mobilerecordingchunk_id, frame_nr) %>% 
+  arrange(-n) %>% 
+  filter(n > 1)
+
+if (nrow(chunks_duplicates) > 0) {
+  mobile_chunks %>%
+    inner_join(chunks_duplicates) %>%
+    arrange(dw_mobilerecordingchunk_id, frame_nr)
+}
+```
+
+No duplicates in our data. If there were any we should filter them out.
+
+
+### Dates
+
+Data collected before 2018 is unreliable due to a bug in the library that was used to collect all the parameters of a call. We'll work only with data from 2018.
+
+```{r}
+visits <- visits %>% filter(visit_date >= "2018-01-01")
+mobile_recordings <- mobile_recordings %>% filter(create_date >= "2018-01-01")
+```
+
+We don't filter `mobile_chunks` as it's not clear when the data was recorded. Instead, we'll use corresponding rows from `mobile_recordings` dataset to get only valid rows by joining the datasets together.
+
+
+### Prepare datasets for further analysis
+
+See the distribution of `mobile_recordings$chunks_count` values:
+
+```{r}
+mobile_recordings$chunks_count %>% summary()
+```
+
+Recordings with more than 10 chunks are unreliable.
+
+```{r}
+mobile_recordings_filtered <- mobile_recordings %>% filter(chunks_count <= 10)
+
+unreliable_rec_id <- mobile_recordings %>% 
+  filter(chunks_count > 10) %>% 
+  select(dw_mobilerecording_id, chunks_count)
+
+unreliable_rec_id
+```
+
+## Calculate aggregates
+
+```{r}
+sample_call_parameters <- get_sample_call_parameters()
+
+stats <- tryCatch({
+  mobile_chunks %>% 
+    tidyr::nest(data = -dw_mobilerecording_id) %>% 
+    mutate(stats = lapply(data, function(i) {
+      i %>%
+        select(all_of(sample_call_parameters)) %>% 
+        summarise_at(vars(sample_call_parameters), list(mean = mean, sd = sd))
+    }))
+})
+
+stats <- stats %>% 
+  select(dw_mobilerecording_id, stats) %>% 
+  tidyr::unnest(cols = c(stats))  %>% 
+  select(dw_mobilerecording_id, ends_with("mean"), ends_with("sd"))
+
+stats
+```
+
+
+### Stats preview
+
+We calculated stiatistics like this (only first 16 rows showed here):
+
+```{r echo=FALSE}
+colnames(stats) %>%
+  sort() %>% 
+  head(16)
+```
+
+For example, for the variable *f1frequency_sma3nz* statistics:
+
+```{r echo=FALSE}
+stats %>% select(starts_with("f1frequency"))
+```
+
+## Labels transformation examples
+
+Transformation functions are used to re-code states into new values, like 'healty/unhealty' instead of 'euthymia/depression'.
+
+```{r}
+visits_label_hu <- transform_label_healthy_unhealthy(visits, 'hamd_ymrs')
+visits_label_custom <- transform_label_custom(visits, 'hamd_ymrs')
+visits_label_cgi <- transform_label_cgi(visits, 'hamd_ymrs')
+```

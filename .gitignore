@@ -3,3 +3,6 @@
 .RData
 .Ruserdata
 /inst/sample_data/.~lock*
+inst/doc
+/doc/
+/Meta/

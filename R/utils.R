@@ -67,3 +67,45 @@ get_sample_mobile_chunks <- function() {
   m_chunks <- m_chunks[, -c(1)]
   m_chunks
 }
+
+
+#' Creates a small dataset for illustrative purposes
+#' @import dplyr
+#' @export
+create_toy_dataset <- function() {
+  phases <- BD_LABELS
+
+  dates <- seq.Date(
+    from = as.Date("2022-01-01"),
+    to = as.Date("2022-12-31"),
+    by = 1
+  )
+  sample_days <- sample(dates, size = 30)
+
+  # visits dataset
+  visits <- suppressWarnings(
+    cbind(phases, visit_date = as.character(sample_days)) %>%
+      as_tibble() %>%
+      mutate(visit_date = as.Date(visit_date))
+  )
+
+  patient_ids <- sample(1:500, size = nrow(visits))
+  visits <- visits %>%  mutate(patient_id = patient_ids)
+
+  visits$visit_id <- sample(1:1000, size = nrow(visits))
+
+  # recordings dataset
+  recordings <- expand.grid(
+    date = dates,
+    patient_id = patient_ids
+  ) %>% dplyr::as_tibble()
+
+  recordings <- recordings %>%
+    mutate(date = as.Date(date),
+           recording_id = 1:n(),
+           x1 = rnorm(n = nrow(.)),
+           x2 = rnorm(n = nrow(.), sd = 3),
+           x3 = rexp(n = nrow(.)))
+
+  list(visits = visits, recordings = recordings)
+}
