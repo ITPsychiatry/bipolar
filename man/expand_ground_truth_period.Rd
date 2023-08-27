@@ -4,7 +4,13 @@
 \alias{expand_ground_truth_period}
 \title{Extrapolates ground truth labels according to phases configuration}
 \usage{
-expand_ground_truth_period(d, config, phases_col, visit_date_col)
+expand_ground_truth_period(
+  d,
+  config,
+  phases_col,
+  visit_date_col,
+  patient_id_col
+)
 }
 \arguments{
 \item{d}{data.frame (tibble) with original visit dates}
@@ -14,6 +20,8 @@ expand_ground_truth_period(d, config, phases_col, visit_date_col)
 \item{phases_col}{which column in \code{visits} stores phases; tidy-selection is available}
 
 \item{visit_date_col}{which column in \code{visits} stores visit date; tidy-selection is available}
+
+\item{patient_id_col}{which column in \code{visits} stores the ID of a patient; tidy-selection is available}
 }
 \value{
 data.frame (tibble) with extra rows covering the interval between

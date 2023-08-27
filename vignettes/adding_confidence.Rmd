@@ -101,7 +101,8 @@ extended_visits <- expand_ground_truth_period(
   d = visits,
   config = auto_config,
   phases_col = phases,
-  visit_date_col = visit_date
+  visit_date_col = visit_date,
+  patient_id_col = patient_id
 )
 extended_visits_clean <- transform_overlapping_phases(extended_visits, config_with_confidence)
 ```

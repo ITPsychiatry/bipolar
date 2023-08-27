@@ -17,3 +17,7 @@ data.frame
 \description{
 Transforms column with states into custom label
 }
+\examples{
+visits <- get_sample_visits()
+transform_label_custom(visits, "hamd_ymrs")
+}

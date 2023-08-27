@@ -1,0 +1,137 @@
+---
+title: "FS_pipeline"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{FS_pipeline}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>",
+  message = FALSE,
+  warning = FALSE
+)
+```
+
+
+```{r}
+library(bipolarPreprocessing)
+library(dplyr)
+set.seed(123)
+```
+
+
+
+# Example of use case of data preprocessing
+
+### Get sample data
+
+
+```{r}
+visits <- get_all_visits()
+mobile_processed <- get_sample_aggregated_data() # [TO DO tych danych nie ma w pakiecie; należy przygotować
+# próbkę zanonimizowaną; obejściem w tej chwili może być zaciągnięcie tych danych osobno, a funkcje tutaj
+# pozostawić jako placeoldery na przyszłość pokazujące, jak ma wyglądać wczytywanie danych]
+```
+
+### Remove duplicates if exists
+
+Check mobile recordings dataset by name (audio file):
+```{r}
+mobile_processed <- mobile_processed %>%
+  filter(parametr == 'srednia')
+```
+
+### Dates
+
+Data collected before 2018 is unreliable due to a bug in the library that was used to collect all the parameters of a call. We'll work only with data from 2018.
+
+```{r}
+visits <- visits %>%
+  filter(visit_date >= "2018-01-01")
+mobile_processed <- mobile_processed %>%
+  filter(create_date >= "2018-01-01")
+
+mobile_processed$create_date <- as.Date(mobile_processed$create_date)
+```
+
+
+### Joining with visits
+
+```{r}
+visits$visit_date <- as.Date(visits$visit_date)
+visits$patient_id <- as.double(visits$patient_id)
+visits <- visits[visits$visit_date > '2017-06-01',]
+visits <- visits[!is.na(visits$hamd_ymrs),]
+visits <- visits %>% filter(hamd_suma >= 0 & visits$yms_suma >=0)
+
+auto_config <- auto_create_phases_config(visits, hamd_ymrs)
+auto_config
+```
+
+
+
+
+### Adding confidence path
+
+```{r}
+#insert new rows for each record
+
+visits <- visits[,c('patient_id', 'visit_date', 'type_of_visit', 'hamd_ymrs')]
+
+config_with_confidence <- auto_config %>%
+  add_confidence(func = dnorm)
+
+extended_visits <- expand_ground_truth_period(
+  d = visits,
+  config = auto_config,
+  phases_col = hamd_ymrs,
+  visit_date_col = visit_date,
+  patient_id_col = patient_id
+)
+extended_visits
+```
+
+
+```{r}
+#sprawdzam czy sie nakładają dni
+extended_visits_clean <- transform_overlapping_phases(extended_visits, config_with_confidence)
+extended_visits_clean 
+
+# The next step is merging this data with recordings by 'date' = 'recording_date' (day only)
+## First, transform visits with expanded time window into wider form
+visits_wide <- extended_visits_clean %>%
+  transform_label_custom("phase") %>%
+  mutate(val = 1) %>%
+  tidyr::pivot_wider(names_from = phase, values_from = val, values_fill = 0)
+
+## now join with recordings
+model_df <- left_join(
+  mobile_processed,
+  visits_wide,
+  by = c( "patient_id", "create_date" = "date")
+) 
+
+## preview the data:
+```
+
+
+```{r}
+model_df %>% filter(!is.na(visit_date)) %>% print(n = 25)
+```
+
+### Adding feature selection
+
+```{r}
+selected_features = weighted_FS(
+  dataset = model_df ,
+  number_of_features = 10,
+  target_type = 'mania',
+  start_column = 'pcm_LOGenergy_sma',
+  end_column = 'pcm_fftMag_mfcc_12_'
+)
+selected_features
+```

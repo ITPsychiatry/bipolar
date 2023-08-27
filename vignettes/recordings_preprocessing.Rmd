@@ -139,6 +139,24 @@ Transformation functions are used to re-code states into new values, like 'healt
 
 ```{r}
 visits_label_hu <- transform_label_healthy_unhealthy(visits, 'hamd_ymrs')
+visits_label_hu$label
+```
+
+### Labels transformation examples
+```{r}
 visits_label_custom <- transform_label_custom(visits, 'hamd_ymrs')
+visits_label_custom$label
+```
+
+### Labels transformation examples
+```{r}
 visits_label_cgi <- transform_label_cgi(visits, 'hamd_ymrs')
+visits_label_cgi$label
+```
+
+### Labels transformation examples
+```{r}
+visits_label_symptoms  <-  transform_label_symptoms(visits )
+visits_label_symptoms %>%
+  select( starts_with("label_"))
 ```

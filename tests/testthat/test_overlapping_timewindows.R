@@ -16,7 +16,8 @@ helper <- function(visit_dates) {
     d = test_visits,
     config = auto_conf,
     phases_col = phase,
-    visit_date_col = visit_date
+    visit_date_col = visit_date,
+    patient_id_col = patient_id
   )
 
   list(

@@ -1,0 +1,38 @@
+.patient-section {
+  border-left: 4px solid black;
+  margin: 15px 0;
+  padding: 0 25px;
+}
+
+.patient-section h4 {
+  background: black;
+  color: white;
+  padding: 10px;
+}
+
+.patient-section .table-container {
+  overflow: auto;
+}
+
+
+details.patient-section summary h4::before {
+  content: "\25B6";
+  font-size: 0.75em;
+  padding-right: 8px;
+}
+
+details.patient-section[open] summary h4::before {
+  content: "\25BC";
+}
+
+
+
+.upload-csv-container {
+  margin: 15px 0;
+  padding: 15px;
+  border: 1px solid lightgray;
+}
+
+.preview-datatable {
+  font-size: 10px;
+}
