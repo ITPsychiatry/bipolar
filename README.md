@@ -10,7 +10,7 @@ We assume users is familiar with RStudio and it's installed on her machine.
 
 ```
 git clone <url-of-the-final-repository>
-cd bipolar
+cd bipolar-preprocessing
 ```
 
 2. Build the package
@@ -28,6 +28,15 @@ install.packages("devtools")
 devtools::install()
 ```
 
+### Install directly from github
+
+In Your R terminal:
+
+```
+remotes::install_github("https://github.com/ITPsychiatry/bipolar-preprocessing",
+                        auth_token = <your_token>)
+```
+
 ## Example use case
 
-For examples how the functions from the package may be used please see the vignettes.
+There's a rmarkdown file that shows what operations can be performed on the sample data which is attached to the package. In the root directory of the package find the _example_use_case.Rmd_ file and open it.

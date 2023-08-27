@@ -1,25 +1,32 @@
 Package: bipolarPreprocessing
 Type: Package
 Title: Preprocessing of mobile recordings data
-Version: 0.1.0
+Version: 0.2.1
 Author: Jakub Malecki, Olga Kaminska
 Maintainer: IT Psychiatry <K.Kaczmarek@ibspan.waw.pl>
 Description: The package enables pre-processing of data from patient visits and voice recordings.
 License: MIT + file LICENSE
-Depends: R (>= 4.0.0), dplyr
+Depends: R (>= 4.2.1), dplyr
 Imports:
+  data.table,
+  DT,
   lubridate,
   readr,
   rlang,
-  tidyr
+  shiny,
+  shinyWidgets,
+  tibble,
+  tidyr,
+  xgboost
 Suggests: 
     roxygen2,
     ggplot2,
     testthat (>= 3.0.0),
     knitr,
-    rmarkdown
+    rmarkdown,
+    ssfclust
 Encoding: UTF-8
 LazyData: true
-RoxygenNote: 7.2.1
+RoxygenNote: 7.2.3
 Config/testthat/edition: 3
 VignetteBuilder: knitr

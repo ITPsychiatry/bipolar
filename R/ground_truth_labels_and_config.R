@@ -78,6 +78,7 @@ get_phase_interval_from_config <- function(config, .phase) {
 #'
 #' @param phases_col which column in \code{visits} stores phases; tidy-selection is available
 #' @param visit_date_col which column in \code{visits} stores visit date; tidy-selection is available
+#' @param patient_id_col which column in \code{visits} stores the ID of a patient; tidy-selection is available
 #'
 #' @importFrom dplyr %>% group_by mutate
 #' @importFrom tidyr nest unnest
@@ -94,7 +95,7 @@ get_phase_interval_from_config <- function(config, .phase) {
 #'
 #' #insert new rows for each record
 #' expand_ground_truth_period(df, auto_config, phases, visit_date)
-expand_ground_truth_period <- function(d, config, phases_col, visit_date_col) {
+expand_ground_truth_period <- function(d, config, phases_col, visit_date_col, patient_id_col) {
   if (!"phases_config" %in% class(config)) {
     warning("The config file is wrong.")
     return(NA)
@@ -105,10 +106,10 @@ expand_ground_truth_period <- function(d, config, phases_col, visit_date_col) {
   }
 
   df_nested <- d %>%
-    group_by({{phases_col}}, {{visit_date_col}}) %>%
+    group_by({{patient_id_col}}, {{phases_col}}, {{visit_date_col}} ) %>%
     nest()
 
-  df_nested %>%
+  df_nested_extrapolated <- df_nested %>%
     mutate(extended_rows = lapply(data, function(i) {
       interval <- get_phase_interval_from_config(config, {{phases_col}})
       before <- interval[1]
@@ -120,8 +121,11 @@ expand_ground_truth_period <- function(d, config, phases_col, visit_date_col) {
       )
       time_point <- time_window(c(-before, after))
       dplyr::tibble(date = date, time_point = time_point)
-    })) %>%
-    unnest(cols = c(data, extended_rows)) %>%
+    }))
+
+  df_nested_extrapolated %>%
+    unnest(cols = c(data)) %>%
+    unnest(cols = c(extended_rows)) %>%
     rename(phase = {{phases_col}}) %>%
     mutate(time_point = as.integer(time_point))
 }
@@ -163,7 +167,8 @@ expand_ground_truth_period <- function(d, config, phases_col, visit_date_col) {
 #'   d = test_visits,
 #'   config = auto_conf,
 #'   phases_col = phase,
-#'   visit_date_col = visit_date
+#'   visit_date_col = visit_date,
+#'   patient_id_col = patient_id
 #' )
 #'
 #' # add confidence; toggle commented lines to try different scenarios
@@ -185,7 +190,15 @@ expand_ground_truth_period <- function(d, config, phases_col, visit_date_col) {
 #'   geom_vline(aes(xintercept = visit_date, color = as.factor(visit_id)))
 #'
 #' # solution
-#' transform_overlapping_phases(extended_test_visits, problematic)
+#' resolved <- transform_overlapping_phases(extended_test_visits, problematic)
+#' ggplot(
+#'   data = resolved,
+#'   aes(y = confidence, x = date, color = as.factor(visit_id))
+#' ) +
+#'   geom_point(position = position_jitter(height = 0.015, width = 0)) +
+#'   geom_line(position = position_jitter(height = 0.015)) +
+#'   ylim(c(-0.1, 1.1)) +
+#'   geom_vline(aes(xintercept = visit_date, color = as.factor(visit_id)))
 transform_overlapping_phases <- function(extended_visits,
                                          phases_with_confidence) {
   stopifnot(is.data.frame(extended_visits))
@@ -210,6 +223,6 @@ transform_overlapping_phases <- function(extended_visits,
   ) %>%
     group_by(patient_id, date) %>%
     arrange(date, desc(max(confidence)), abs(time_point), desc(visit_date)) %>%
-    slice(1)
+    dplyr::slice(1)
   unique_phases
 }

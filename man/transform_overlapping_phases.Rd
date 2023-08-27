@@ -42,7 +42,8 @@ extended_test_visits <- expand_ground_truth_period(
   d = test_visits,
   config = auto_conf,
   phases_col = phase,
-  visit_date_col = visit_date
+  visit_date_col = visit_date,
+  patient_id_col = patient_id
 )
 
 # add confidence; toggle commented lines to try different scenarios
@@ -64,5 +65,13 @@ ggplot(
   geom_vline(aes(xintercept = visit_date, color = as.factor(visit_id)))
 
 # solution
-transform_overlapping_phases(extended_test_visits, problematic)
+resolved <- transform_overlapping_phases(extended_test_visits, problematic)
+ggplot(
+  data = resolved,
+  aes(y = confidence, x = date, color = as.factor(visit_id))
+) +
+  geom_point(position = position_jitter(height = 0.015, width = 0)) +
+  geom_line(position = position_jitter(height = 0.015)) +
+  ylim(c(-0.1, 1.1)) +
+  geom_vline(aes(xintercept = visit_date, color = as.factor(visit_id)))
 }

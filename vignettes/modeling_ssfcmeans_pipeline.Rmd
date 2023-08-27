@@ -1,0 +1,260 @@
+---
+title: "Modeling with SSFCMeans Pipeline"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Modeling with SSFCMeans Pipeline}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+# Prepare environment
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  echo = TRUE, message = FALSE, warning = FALSE,
+  collapse = TRUE,
+  comment = "#>"
+)
+```
+
+```{r}
+set.seed(123)
+
+library(dplyr)
+library(bipolarPreprocessing)
+```
+
+Install package `ssfclust` that implements Semi-Supervised Fuzzy C-Means model.
+
+```{r}
+# devtools::install_github("ITPsychiatry/ssfclust@refactor")
+library(ssfclust)
+```
+
+# Read data
+
+The actual files are not kept in this repository - *csv* files are git-ignored.
+One must upload the data files on their own.
+Next versions of this vignette will contain exemplary data.
+
+```{r}
+df <- get_sample_aggregated_data() %>% filter(parametr == "srednia") %>% na.omit()
+
+raw_visits <- get_all_visits() %>% select(patient_id, visit_date, hamd_ymrs)
+```
+
+## Structure of `df` dataframe
+
+The `df` dataframe contains summaries of sensors data from phone calls.
+One row is a summary of sensors data from a single phone call.
+
+Any `df` dataframe should contain at least:
+
+* composite key `c("patient_id", "create_date")`, where `create_date`
+column holds date (YYYY-MM-DD) of the phone call recording,
+
+* summaries of variables collected from each phone call $X$ (these can
+be e.g., *mean* of a given variable -- mean jittering for example -- or
+standard deviation of a given variable).
+
+The `df` dataframe can, but does not have to, contain a unique identifier
+of each phone call.
+In the example above, this identifier is kept in the `recording` column.
+Note that this is not necessary as **we treat each row as summarising a specific phone call by design**.
+It is the responsibility of the user to satisfy that condition for there are no automatic quality checks.
+
+## Structure of `raw_visits` dataframe
+
+Dataframe `visits` should contain:
+
+* composite key `c("patient_id", "visit_date")`,
+* information necessary to derive a **label** for each visit;
+it can be preprocessed information already in form of labels (e.g., classification
+*healthy* or *mania*) or it can be data that still needs postprocessing (e.g., raw data from questionnaires).
+
+In the latter case, postprocessing needs to occur (we point in this vignette where it should occur).
+
+# Data preparation
+
+## dates data type
+
+Cast data type of visit date, get rid of missing observations.
+
+```{r}
+raw_visits$visit_date <- as.Date(raw_visits$visit_date)
+raw_visits <- raw_visits[-which(is.na(raw_visits$visit_date)), ]
+```
+
+## select significant predictors only
+
+Dataframe `sensors_data` that we create here should contain only:
+
+* aforementioned composite key `c("patient_id", "date")` (we rename `create_date` to shorter name `date` for simplicity),
+* those sensors' data variables from `df` that are deemed significant variables - they should be encoded in the character vector `x_variables`.
+
+```{r}
+x_variables <- c("f0_sma", "f0env_sma", "jitterlocal_sma", "pcm_rmsenergy_sma")
+
+sensors_data <- df %>% 
+  select(patient_id, create_date, all_of(x_variables)) %>%
+  mutate(date = as.Date(create_date))
+```
+
+```{r}
+dim(sensors_data)
+```
+
+We have `r nrow(sensors_data)` unsupervised observations.
+We now need to apply ground truth extrapolation technique.
+
+## prepare `visits` dataframe
+
+The `visits` dataset that we now create is a clean form of `raw_visits`.
+It should contain a column $Y = (y_j)^T,\:j=1,\ldots,N,$ containing categorical labels $y_j \in \{y_1, \ldots, y_c\}$.
+For example, a following encoding is applied in this vignette: $y_1 = \text{euthymia}$, $y_2 = \text{depression}$, $y_3 = \text{mania}$, $y_4 = \text{mixed}$.
+
+If your `raw_visits` datasets needs postprocessing (e.g. summarising data from questionnaires) to derive such
+categorical labels, **this is the place to apply it**.
+
+Our exemplary `visits` dataframe already contains categorical labels in column `hamd_ymrs`:
+```{r}
+unique(raw_visits$hamd_ymrs)
+```
+
+Your final `visits` dataframe should contain only these columns:
+
+* `patient_id`: part of compiste key,
+* `visit_date`: date of visit in YYYY-MM-DD format,
+* $Y$: column encoding the categorical label assigned to each visit.
+You can use your own name, e.g. `label`.
+
+We rename `hamd_ymrs` to `label` in this vignette and create the `visits` dataframe.
+
+```{r}
+visits <- transform_label_custom(raw_visits, "hamd_ymrs")
+```
+
+# Apply ground truth period extrapolation to data from `visits`
+
+## time windows config preparation for phases
+
+Use the `auto_create_phases_config` function to define time windows for ground truth period extrapolation for each phase separately.
+
+```{r}
+# rename name of the function temporarily
+auto_create_phases_tw_config <- auto_create_phases_config
+
+auto_tw_config <- auto_create_phases_tw_config(visits, label)
+auto_tw_config
+```
+
+The `auto_tw_config` we created applied the same time window $[-7, 2]$ for each of the four phases found in the `visits$label` column.
+
+## Label confidence weighing 
+
+We can *weigh* the confidence of label -- expressed as a fraction taking values in
+the unit interval $[0, 1]$ -- following the rule: the further from the visit, the smaller the weight (= the smaller the confidence).
+
+Note that by default confidence of each label is equal to $1$.
+
+For example, we can use Gaussian curve (mean=0, sd=5) to apply confidence weighing.
+
+```{r}
+tw_config_with_confidence <- auto_tw_config %>%
+  add_confidence(func = dnorm, mean=0, sd=5)
+```
+
+Let us visualize the confidence extrapolation for `depression` phase, note that
+the same strategy applies for the remaining phases (in this vignette).
+
+```{r, fig.dim = c(6, 4)}
+with(tw_config_with_confidence %>% filter(phase == "depression"),
+     plot(x=time_point, y=confidence, type="b",
+          xlab="Day relative to the visit",
+          ylab="Label confidence",
+          main=paste0(
+            "Ground truth period extrapolation for \'depression\' phase\n",
+            "Weighing with Normal(0, 5) distribution"),
+          ylim=c(0, 1)
+     ))
+```
+
+## Extrapolate ground truth period onto actual data
+
+We now need to apply *ground truth period extrapolation* configured above
+on the actual data collected in the `visits` dataframe.
+
+```{r}
+visits_extrapolated <- expand_ground_truth_period(
+  d = visits,
+  config=auto_tw_config,
+  phases_col = label,
+  visit_date_col = visit_date,
+  patient_id_col = patient_id
+)
+```
+
+```{r}
+visits_extrapolated
+```
+
+```{r}
+visits_extrapolated_clean <- transform_overlapping_phases(visits_extrapolated, tw_config_with_confidence)
+
+visits_extrapolated_clean
+```
+Wide format is required for modeling:
+
+```{r}
+visits_wide <- visits_extrapolated_clean %>%
+  mutate(val = 1) %>%
+  tidyr::pivot_wider(
+    names_from = phase, 
+    values_from = val, 
+    values_fill = 0, 
+    names_prefix="phase_")
+```
+
+# Annotate the data
+
+```{r}
+model_df <- left_join(
+  sensors_data,
+  visits_wide,
+  by = c( "patient_id", "date")
+) 
+```
+
+How much data we have annotated?
+
+```{r}
+paste(
+  "We annotated ",
+  ifelse(is.na(model_df$confidence), 0, 1) |> mean() |> round(2),
+  " of the data")
+```
+
+# Prepare data for modeling
+
+```{r}
+X <- model_df %>% 
+  select(all_of(x_variables)) %>%
+  as.matrix()
+```
+
+```{r}
+F_ <- model_df %>% 
+  select(starts_with("phase_")) %>%
+  replace(is.na(.), 0) %>%
+  as.matrix()
+```
+
+```{r}
+model <- ssfclust::SSFCM(X, C=4)
+model_ss <- ssfclust::SSFCM(X, C=4, F_=F_, alpha=1)
+```
+
+
+
+
+

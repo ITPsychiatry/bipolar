@@ -1,10 +1,7 @@
 #' Read sample dataset
 #'
 #' @param dataset_name character;
-#' @name get_sample_ds
 #' @return tibble
-NULL
-
 #' @rdname get_sample_ds
 get_sample_csv <- function(dataset_name) {
   tryCatch(
@@ -26,6 +23,31 @@ get_sample_csv <- function(dataset_name) {
 #' @export
 get_sample_visits <- function() {
   get_sample_csv("visits1472.csv")
+}
+
+
+#' @rdname get_sample_ds
+#' @family get_sample_data
+#' @export
+get_all_visits <- function() {
+  file_path <- file.path(
+    Sys.getenv("DATA_REPO"),
+    "wizyty.csv"
+  )
+  data.table::fread(file_path, header = TRUE)
+}
+
+
+
+#' @rdname get_sample_ds
+#' @family get_sample_data
+#' @export
+get_sample_aggregated_data <- function() {
+  file_path <- file.path(
+    Sys.getenv("DATA_REPO"),
+    "data_BIPOLAR.csv"
+  )
+  data.table::fread(file_path, header = TRUE)
 }
 
 #' @rdname get_sample_ds
