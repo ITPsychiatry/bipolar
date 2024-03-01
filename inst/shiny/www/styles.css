@@ -4,7 +4,7 @@
   padding: 0 25px;
 }
 
-.patient-section h4 {
+details.title-bar h4 {
   background: black;
   color: white;
   padding: 10px;
@@ -15,13 +15,13 @@
 }
 
 
-details.patient-section summary h4::before {
+details.title-bar summary h4::before {
   content: "\25B6";
   font-size: 0.75em;
   padding-right: 8px;
 }
 
-details.patient-section[open] summary h4::before {
+details.title-bar[open] summary h4::before {
   content: "\25BC";
 }
 
@@ -35,4 +35,38 @@ details.patient-section[open] summary h4::before {
 
 .preview-datatable {
   font-size: 10px;
+}
+
+/* inputs outputs configuration */
+.dir-btn-container {
+  margin-bottom: 50px;
+}
+
+.dir-btn-container pre {
+  margin: 1em 0;
+  border: 0px;
+}
+
+.pad-8 {
+      padding: 0 8px;
+    }
+
+#psychiatric-data-load-container, #experiment-load-container {
+  display: inline-flex;
+  align-items: center;
+}
+
+#button-psychiatric-data-load {
+  margin-bottom: 30px;
+  margin-left: 20px;
+}
+
+#button-experiment-load {
+  margin-bottom: 7px;
+  margin-left: 20px;
+}
+
+.btn-sample-data-load {
+  background: black;
+  color: white;
 }

@@ -31,7 +31,7 @@ Our goal is to extrapolate the state from a visit date to a wider time window. W
 Let's read libraries we need
 
 ```{r setup}
-library(bipolarPreprocessing)
+library(bipolar)
 library(ggplot2)
 ```
 

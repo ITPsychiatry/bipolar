@@ -10,7 +10,7 @@ We assume users is familiar with RStudio and it's installed on her machine.
 
 ```
 git clone <url-of-the-final-repository>
-cd bipolar-preprocessing
+cd bipolar
 ```
 
 2. Build the package
@@ -23,8 +23,9 @@ If not already installed in Your R library, install it:
 ```
 install.packages("devtools")
 ```
-- finally, install the _bipolar-preprocessing_ package
+- finally, install the _ssfclus_ and _bipolar_ packages:
 ```
+devtools::install_github("ITPsychiatry/ssfclust@refactor")
 devtools::install()
 ```
 
@@ -33,10 +34,23 @@ devtools::install()
 In Your R terminal:
 
 ```
-remotes::install_github("https://github.com/ITPsychiatry/bipolar-preprocessing",
+remotes::install_github("https://github.com/ITPsychiatry/bipolar",
                         auth_token = <your_token>)
 ```
 
-## Example use case
+## Easy to run examples (vignettes) 
 
-There's a rmarkdown file that shows what operations can be performed on the sample data which is attached to the package. In the root directory of the package find the _example_use_case.Rmd_ file and open it.
+
+There are the following rmarkdown files that show selected basic operations that can be performed and the sample data which is attached to the package:
+
+_1_preprocessing_of_sensor_and_psychiatric_data.Rmd_
+
+_2_aggregating_voice_recordings.Rmd_
+
+_3_uncertainty_aware_feature_selection.Rmd_
+
+_4_validation_of_semi_sueprvised_fuzzy_clustering.Rmd_
+
+_5_view_dashboards_with_modeling_outputs.Rmd_
+
+In the _Vignettes_ directory of the package, find these files and open them.

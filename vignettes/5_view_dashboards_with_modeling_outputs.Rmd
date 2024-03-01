@@ -1,0 +1,28 @@
+---
+title: "Model validation single"
+output: 
+  rmarkdown::html_vignette:
+    df_print: tibble
+vignette: >
+  %\VignetteIndexEntry{Model validation single}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+# Prepare environment
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  echo = TRUE, message = FALSE, warning = FALSE,
+  collapse = TRUE,
+  comment = "#>"
+)
+```
+
+
+## Dashboards
+
+```{r}
+load_results("experiment_02.rds")
+```
+

@@ -12,7 +12,7 @@ BD_LABELS <- c("mania", "depression", "mixed", "euthymia")
 #' @export
 #'
 #' @examples
-#' visits <- get_sample_visits()
+#' visits <- get_sample_psychiatric_data()
 #' transform_label_healthy_unhealthy(visits, "hamd_ymrs")
 transform_label_healthy_unhealthy <- function(dataset, label_name) {
   dataset <- dataset %>% mutate(
@@ -34,7 +34,7 @@ transform_label_healthy_unhealthy <- function(dataset, label_name) {
 #' @return data.frame
 #' @export
 #' @examples
-#' visits <- get_sample_visits()
+#' visits <- get_sample_psychiatric_data()
 #' transform_label_custom(visits, "hamd_ymrs")
 transform_label_custom <- function(dataset, label_name) {
   dataset["label"] = dataset[label_name]
@@ -52,7 +52,7 @@ transform_label_custom <- function(dataset, label_name) {
 #' @export
 #'
 #' @examples
-#' visits <- get_sample_visits()
+#' visits <- get_sample_psychiatric_data()
 #' transform_label_cgi(visits, "hamd_ymrs")
 transform_label_cgi <- function(dataset, label_name) {
   tryCatch({
@@ -78,7 +78,7 @@ transform_label_cgi <- function(dataset, label_name) {
 #' @export
 #'
 #' @examples
-#' visits <- get_sample_visits()
+#' visits <- get_sample_psychiatric_data()
 #' transform_label_hy(visits, "hamd_suma")
 transform_label_hy <- function(dataset, label_name) {
   tryCatch({
@@ -102,7 +102,7 @@ transform_label_hy <- function(dataset, label_name) {
 #' @export
 #'
 #' @examples
-#' visits <- get_sample_visits()
+#' visits <- get_sample_psychiatric_data()
 #' transform_label_symptoms(visits )
 transform_label_symptoms <- function(dataset) {
   symptoms_columns <- c('hamd_anxiety','hamd_fearMentalSymptoms','hamd_inhibition', 'hamd_workAndInterests',

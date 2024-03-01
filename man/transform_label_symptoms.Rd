@@ -16,6 +16,6 @@ dataset
 Transform column into multilabels hamilton and young
 }
 \examples{
-visits <- get_sample_visits()
+visits <- get_sample_psychiatric_data()
 transform_label_symptoms(visits )
 }

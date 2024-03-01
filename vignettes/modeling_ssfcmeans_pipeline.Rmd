@@ -21,7 +21,7 @@ knitr::opts_chunk$set(
 set.seed(123)
 
 library(dplyr)
-library(bipolarPreprocessing)
+library(bipolar)
 ```
 
 Install package `ssfclust` that implements Semi-Supervised Fuzzy C-Means model.

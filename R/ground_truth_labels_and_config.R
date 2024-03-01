@@ -1,4 +1,4 @@
-# Constants ----
+# Constants -----
 
 DEFAULT_PHASE_DAYS_BEFORE <- 7
 DEFAULT_PHASE_DAYS_AFTER <- 2
@@ -29,15 +29,24 @@ get_default_intervals_for_phases <- function() {
 
 #' Automatically creates config object based on input data
 #'
-#' @inheritParams get_unique_phases
+#' @param extrapolation_interval a numeric vector of length 2 specifying the
+#' time window interval. The first element should be > 0 and specifies
+#' how many days before the visit day shall the time window span.
+#' The second element should be > 0 and specifies how many days after the visit
+#' shall the time window span.
 #'
 #' @export
-auto_create_phases_config <- function(df, phases_column) {
+create_time_window_config <- function(
+    df, phases_column, extrapolation_interval = get_default_intervals_for_phases()) {
+  stopifnot("Default interval argument should be a vector of length 2" =
+            length(extrapolation_interval) == 2)
+  stopifnot("Default interval should be of format c(`{value > 0}, {value > 0})`" =
+            all(extrapolation_interval > 0))
+
   phases <- get_unique_phases(df, {{phases_column}})
-  default_interval <- get_default_intervals_for_phases() %>% as.integer()
   default_df <- tibble::tibble(
-    default_interval[1],
-    default_interval[2]
+    extrapolation_interval[1],
+    extrapolation_interval[2]
   )
   cnf <- merge(
     phases,
@@ -91,7 +100,7 @@ get_phase_interval_from_config <- function(config, .phase) {
 #' set.seed(123)
 #' df <- create_toy_dataset()
 #' visits <- df$visits
-#' auto_config <- auto_create_phases_config(visits, phases)
+#' auto_config <- create_time_window_config(visits, phases)
 #'
 #' #insert new rows for each record
 #' expand_ground_truth_period(df, auto_config, phases, visit_date)
@@ -162,7 +171,7 @@ expand_ground_truth_period <- function(d, config, phases_col, visit_date_col, pa
 #'   phase = c("depression", "mania")
 #' )
 #'
-#' auto_conf <- auto_create_phases_config(test_visits, phase)
+#' auto_conf <- create_time_window_config(test_visits, phase)
 #' extended_test_visits <- expand_ground_truth_period(
 #'   d = test_visits,
 #'   config = auto_conf,

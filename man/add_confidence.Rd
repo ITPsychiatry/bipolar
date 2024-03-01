@@ -29,7 +29,7 @@ Add confidence values to the config
 set.seed(123)
 df <- create_toy_dataset()
 visits <- df$visits
-auto_config <- auto_create_phases_config(visits, phases)
+auto_config <- create_time_window_config(visits, phases)
 auto_config \%>\% add_confidence(values = .5)
 auto_config \%>\% add_confidence(values = .5, normalize = FALSE)
 auto_config \%>\% add_confidence(values = c(0.5, 0.5, 0.7, 0.7, rep(1, 6)))

@@ -18,6 +18,6 @@ data.frame
 Transforms column with states into custom label
 }
 \examples{
-visits <- get_sample_visits()
+visits <- get_sample_psychiatric_data()
 transform_label_custom(visits, "hamd_ymrs")
 }

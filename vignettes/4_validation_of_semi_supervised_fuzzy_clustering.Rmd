@@ -1,0 +1,325 @@
+---
+title: "Model validation single"
+output: 
+  rmarkdown::html_vignette:
+    df_print: tibble
+vignette: >
+  %\VignetteIndexEntry{Model validation single}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+# Prepare environment
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  echo = TRUE, message = FALSE, warning = FALSE,
+  collapse = TRUE,
+  comment = "#>"
+)
+```
+
+```{r}
+set.seed(123)
+
+library(DT)
+library(dplyr)
+library(tidyr)
+library(tibble)
+library(bipolar)
+library(devtools)
+devtools::install_github("ITPsychiatry/ssfclust@refactor")
+library(ssfclust)
+library(ggplot2)
+```
+# Perform data preparation
+
+## Read raw data and adjust it
+
+There exists only `create_date` column in `df` dataframe with respect to time
+of data recording, which is a datetime column.
+It does not contain exact hour of recording, and hence - using this df - 
+we cannot distinguish between many calls recorded on the same day.
+
+```{r}
+df <- get_sample_sensor_data()
+raw_visits <- get_sample_psychiatric_data() %>%
+  select(patient_id, visit_date, hamd_ymrs)
+```
+
+
+```{r}
+raw_visits$visit_date <- as.Date(raw_visits$visit_date)
+raw_visits <- raw_visits %>% filter(!is.na(visit_date))
+
+x_variables <- colnames(df)
+  
+sensors_data <- df %>% 
+  select(any_of(c("patient_id", "create_date", x_variables))) %>%
+  mutate(date = as.Date(create_date))
+
+visits <- transform_label_custom(raw_visits, "hamd_ymrs")
+```
+
+## Steps to create the final dataset
+
+Firstly, we create time window config, i.e., the span of the time window.
+We will use the default settings of a time window spanning from 7 days before
+the visit to 2 days after the visit.
+
+```{r}
+# use the default settings for the interval
+auto_tw_config <- 
+  create_time_window_config(visits, label)
+```
+
+We now add *confidence factor*.
+It is a scalar assigned to each supervised observation expressing how confident
+we are in this label being viable.
+We will use a default value of $1$ for all supervised observations -
+note that such an approach does not modify anything (it is identical as if we
+did not think about the label certainty at all).
+
+```{r}
+tw_config_with_confidence <- auto_tw_config %>% add_confidence(values = 1)
+```
+
+Extrapolate the data from visits based on the config.
+
+```{r}
+visits_extrapolated <- expand_ground_truth_period(
+  d = visits,
+  config = auto_tw_config,
+  phases_col = label,
+  visit_date_col = visit_date,
+  patient_id_col = patient_id
+)
+```
+
+Clean the data - if the extrapolation resulted in overlapping phases.
+Examine `?bipolar::transform_overlapping_phases` function's help
+documentation to check the behaviour of the function with constant confidence
+equal to $1$ for all supervised observations.
+
+```{r}
+visits_extrapolated_clean <- 
+  transform_overlapping_phases(visits_extrapolated, tw_config_with_confidence)
+```
+
+Change the format of the dataframe from long to wide.
+
+```{r}
+visits_wide <- visits_extrapolated_clean %>%
+  mutate(val = 1) %>%
+  mutate(label = phase) %>%  # need for comparison models or weighted sampling
+  tidyr::pivot_wider(
+    names_from = phase, 
+    values_from = val, 
+    values_fill = 0, 
+    names_prefix="phase_")
+```
+
+Create the final dataframe used for modeling.
+
+```{r}
+model_df <- left_join(
+  sensors_data,
+  visits_wide,
+  by = c( "patient_id", "date")
+) 
+```
+
+# Modeling functions
+
+## Semi-Supervised Fuzzy C-Means
+
+We use the (3) SPO (Scenario Patient Out) scenario to demonstrate how to
+score new test data with existing model.
+
+Firstly, we define `train_ssfc` function that will return a fitted
+Semi-Supervised Fuzzy C-Means model.
+
+```{r}
+#' A function to train SSFCMeans model.
+#' 
+#' It performs necessary data wrangling for reshaping input data so it fits
+#' `ssfclust::SSFCM` function requirements.
+#'
+#' @param .model_df_train filtered final modeling dataframe in wide shape so
+#' that it contains only data selected for the training set.
+#' @param .predictors character vector containing names of predictors
+#' to be used in modeling.
+#' @param alpha float > 0, the only hyperparameter of the ssfcm model.
+#'
+#' @return object of class `ssfcm` representing SSFCMeans model fitted to data
+#'
+train_ssfc <-
+function(.model_df_train, .predictors, alpha)
+{
+  X_train <- .model_df_train %>%
+    select(all_of(.predictors)) %>%
+    as.matrix()
+  
+  F_train <- .model_df_train %>% 
+    select(starts_with("phase_")) %>%
+    replace(is.na(.), 0) %>%
+    as.matrix()
+  
+  model <- ssfclust::SSFCM(X_train, C = ncol(F_train), F_ = F_train, 
+                           alpha = alpha)
+  
+  return(model)
+}
+```
+
+We now create the `predict_ssf` function to obtain full scoring information,
+including all estimated memberships, prediction according to argmax rule etc.
+See the documentation of the `predict_ssfc` function below for full details.
+
+```{r}
+#' A function to score data with model of class `ssfcm` and return the estimated
+#' memberships together with metadata.
+#'
+#' @param .model_df_test filtered final modeling dataframe in wide shape so
+#' that it contains only data selected for the test set.
+#' @param .predictors character vector containing names of predictors
+#' used in modeling and now in scoring.
+#' @param .model object of class `ssfcm` representing SSFCMeans model fitted to data
+#'
+#' @return dataframe containing columns in following order:
+#' - patient_id: identifier of the patient,
+#' - columns with names of classes representing memberships to each cluster
+#' associated with the class,
+#' - `predict` column with the predicted class according to argmax rule,
+#' - `true` column with the true a priori known label (if available), `NA`
+#' for unsupervised values,
+#' - `create_date` with the date/datetime (whichever is available) of recording
+#' of the observation,
+#' - predictors columns with original names prefixed by `X_` to easily
+#' distinguish them from the rest of the columns
+predict_ssfc <-
+function(.model_df_test, .predictors, .model)
+{
+  X_test <- .model_df_test %>% 
+    select(all_of(.predictors)) %>%
+    as.matrix()
+  colnames(X_test) <- paste0("X_", colnames(X_test))
+  
+  u_hat <- predict(.model, X_test) %>% as.data.frame()
+  
+  colnames(u_hat) <- colnames(model_df)[grepl("phase_", colnames(model_df))]
+  colnames(u_hat) <- gsub("phase_", "", colnames(u_hat))
+  
+  argmax_prediction <- apply(u_hat, 1, which.max)
+  levels(argmax_prediction) <- colnames(u_hat)
+  class(argmax_prediction) <- "factor"
+  
+  F_test <- .model_df_test %>%
+    select(starts_with("phase_")) %>%
+    as.matrix() %>%
+    max.col()
+  
+  levels(F_test) <- colnames(u_hat)
+  class(F_test) <- "factor"
+  
+  u_hat$predict <- argmax_prediction
+  u_hat$true <- F_test
+  u_hat$create_date <- .model_df_test$create_date
+  
+  output <- cbind(patient_id = .model_df_test$patient_id, u_hat, X_test)
+  
+  return(output)
+}
+```
+
+
+# Run experiments
+
+We train the model, leaving randomly selected patients as test data.
+This approach is called "Leave Patient Out".
+
+```{r}
+model <- train_ssfc(.model_df = model_df %>% filter(!(patient_id %in% c(528, 9813))),
+                    .predictors = x_variables[1:6],    # arbitrary variables chosen
+                    alpha = 1)
+```
+
+Select the observations for the test data set.
+
+```{r}
+test_idx_102 <- which(model_df$patient_id == 102)
+test_idx_105 <- which(model_df$patient_id == 105)
+```
+
+We score the unseen data with the model.
+
+```{r}
+validation_df <- rbind(
+  predict_ssfc(.model_df = model_df[test_idx_102, ], 
+               .predictors = x_variables[1:6], 
+               .model = model),
+  predict_ssfc(.model_df = model_df[test_idx_105, ], 
+               .predictors = x_variables[1:6], 
+               .model = model)
+)
+```
+
+
+# Preparing the final structure
+
+```{r}
+output_structure <-
+  create_information_for_dashboards(
+    dt_output = validation_df,
+    model_name = 'SSFCMeans',
+    hyperparams = list(alpha = 1),
+    validation_setting = "Leave Patient Out",
+    .metric = c("F1", "Precision", "Recall")
+)
+```
+
+```{r}
+HOME <- Sys.getenv("HOME")
+configuration <- create_bipolar_config(inputs = file.path(HOME, "inputs"),
+                                       outputs = file.path(HOME, "outputs"))
+save_output(output_structure, "experiment_01.rds")
+```
+
+# Approach for several (i.e., >1) experiments
+
+First, let's create alternative experiment, where the only change includes
+modifying $\alpha = 0.1$ instead $\alpha = 1$.
+
+```{r}
+model_alt <- train_ssfc(.model_df = model_df %>% filter(!(patient_id %in% c(528, 9813))),
+                        .predictors = x_variables[1:6],    # arbitrary variables chosen
+                        alpha = 0.1)
+
+validation_df_alt <- rbind(
+  predict_ssfc(.model_df = model_df[test_idx_102, ], 
+               .predictors = x_variables[1:6], 
+               .model = model_alt),
+  predict_ssfc(.model_df = model_df[test_idx_105, ], 
+               .predictors = x_variables[1:6], 
+               .model = model_alt)
+)
+
+output_structure_alt <-
+  create_information_for_dashboards(
+    dt_output = validation_df_alt,
+    model_name = 'SSFCMeans',
+    hyperparams = list(alpha = 0.1),
+    validation_setting = "Leave Patient Out",
+    .metric = c("F1", "Precision", "Recall")
+)
+```
+
+We now proceed with two approaches to storing several experiments results:
+in two separate `rds` files, or in one `rds` file.
+
+## Two separate rds
+
+```{r}
+save_output(output_structure_alt, "experiment_02.rds")
+```
+

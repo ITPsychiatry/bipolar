@@ -1,63 +1,46 @@
-library(bipolarPreprocessing)
+library(bipolar)
 library(shiny)
 library(DT)
 library(shinyWidgets)
+library(ggplot2)
+library(shinyFiles)
+library(flextable)
+library(shinyjs)
+library(shinycssloaders)
+
 
 # increase the size limit for file upload (https://groups.google.com/g/shiny-discuss/c/rU3vwGMZexQ/m/zeKhiYXrtEQJ)
 options(shiny.maxRequestSize=200*1024^2)
 
-# mocked data:
-DATA <- list(
-  patients = list(
-    list(
-      patient_id = "0001",
-      visits = dplyr::tibble(
-        visit_date = seq.Date(as.Date("2023-01-13"), as.Date("2023-05-01"), length.out = 5),
-        type = c("initial", "control", "control", "control", "intervention"),
-        hamilton_sum = sample(5:15, 5),
-        young_sum = sample(5:15, 5),
-        state = c("mixed", "depression", "euthymia", "mixed", "mixed")
-      )
-    ),
-    list(
-      patient_id = "0002",
-      visits = dplyr::tibble(
-        visit_date = seq.Date(as.Date("2023-02-13"), as.Date("2023-04-01"), length.out = 3),
-        type = c("initial", "control", "control"),
-        hamilton_sum = sample(5:15, 3),
-        young_sum = sample(5:15, 3),
-        state = c("mixed", "depression", "euthymia")
-      )
-    )
-  )
-)
-
-
 #### Main app: -----
 ui <- navbarPage(
-  title = "Bipolar Data Browser",
-  tabPanel("Data Source",
-           data_management_ui("data_csv_upload")),
-  tabPanel("Patients",
+  title = "BIPOLAR",
+
+  tabPanel("Configuration",
+           config_view_ui("io_config")),
+  tabPanel("Explore Patients",
            patients_view_ui("v_patients")),
-  tabPanel("Model Output"),
+  tabPanel("Explore Model",
+           output_view_ui("v_output")),
   header = includeCSS("www/styles.css")
 )
 
 
 server <- function(input, output, session) {
+  app_config <- config_view("io_config")
   # reactive datasets
   patients_visits <- reactiveVal()
   patients_calls <- reactiveVal()
+  model_output <- reactiveVal()
 
-  patients_view("v_patients",
-                visits_data = patients_visits,
-                calls_data = patients_calls)
+  patients_view("v_patients")
+  output_view("v_output", app_config)
+
   app_data <- data_management("data_csv_upload")
 
   observeEvent(app_data()$visits, {
     app_data_list <- reactiveValuesToList(app_data())
-    # prepare patients_visits
+
     visits_by_patient_id <- app_data_list$visits
     .patients_visits <- visits_by_patient_id$patient_id %>%
       unique() %>%
@@ -73,7 +56,7 @@ server <- function(input, output, session) {
 
   observeEvent(app_data()$mobile_calls, {
     app_data_list <- reactiveValuesToList(app_data())
-    # prepare patients_visits
+
     calls_by_patient_id <- app_data_list$mobile_calls
     .patients_calls <- calls_by_patient_id$patient_id %>%
       unique() %>%
@@ -86,6 +69,24 @@ server <- function(input, output, session) {
       })
     patients_calls(.patients_calls)
   })
+
+  observeEvent(app_data()$output, {
+    app_data_list <- reactiveValuesToList(app_data())
+
+    output_by_patient_id <- app_data_list$output$dt_output
+
+    .model_output <- list(patients_id = app_data_list$output$patients_id,
+                          acoustic_params = app_data_list$output$acoustic_params,
+                          model_name = app_data_list$output$model_name,
+                          hyperparams = app_data_list$output$hyperparams,
+                          dt_output = app_data_list$output$dt_output,
+                          confusion_matrix = app_data_list$output$confusion_matrix
+
+         )
+
+    model_output(.model_output)
+  })
+
 }
 
 shinyApp(ui, server)

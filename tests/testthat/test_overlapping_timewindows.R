@@ -11,7 +11,7 @@ helper <- function(visit_dates) {
     phase = c("depression", "mania")
   )
 
-  auto_conf <- auto_create_phases_config(test_visits, phase)
+  auto_conf <- create_time_window_config(test_visits, phase)
   expanded_visits <- expand_ground_truth_period(
     d = test_visits,
     config = auto_conf,

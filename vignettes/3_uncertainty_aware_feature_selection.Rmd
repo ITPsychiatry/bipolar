@@ -1,0 +1,126 @@
+---
+title: "FS_pipeline"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{FS_pipeline}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>",
+  message = FALSE,
+  warning = FALSE
+)
+```
+
+
+```{r}
+library(bipolar)
+library(dplyr)
+set.seed(123)
+```
+
+
+
+# Example of use case of data preprocessing
+
+### Get sample data
+
+
+```{r}
+sensor_data_synthetic <- get_sample_sensor_data()
+visits <- get_sample_psychiatric_data()
+```
+
+### Dates
+
+```{r}
+sensor_data_synthetic$create_date <- as.Date(sensor_data_synthetic$create_date)
+sensor_data_synthetic <- sensor_data_synthetic %>% filter(!is.na(create_date)) %>% print(n = 25)
+```
+
+
+### Joining sensor and psychiatric data
+
+```{r}
+visits$visit_date <- as.Date(visits$visit_date)
+visits$patient_id <- as.double(visits$patient_id)
+visits <- visits[visits$visit_date > '2017-06-01',]
+visits <- visits[!is.na(visits$hamd_ymrs),]
+visits <- visits %>% filter(hamd_suma >= 0 & visits$yms_suma >=0)
+
+auto_config <- create_time_window_config(visits, hamd_ymrs)
+auto_config
+```
+
+
+
+
+### Adding confidence path
+
+```{r}
+#insert new rows for each record
+
+visits <- visits[,c('patient_id', 'visit_date', 'hamd_ymrs')]
+
+config_with_confidence <- auto_config %>%
+  add_confidence(func = dnorm)
+
+extended_visits <- expand_ground_truth_period(
+  d = visits,
+  config = auto_config,
+  phases_col = hamd_ymrs,
+  visit_date_col = visit_date,
+  patient_id_col = patient_id
+)
+extended_visits
+```
+
+
+```{r}
+#sprawdzam czy sie nakładają dni
+extended_visits_clean <- transform_overlapping_phases(extended_visits, config_with_confidence)
+extended_visits_clean 
+
+# The next step is merging this data with recordings by 'date' = 'recording_date' (day only)
+## First, transform visits with expanded time window into wider form
+visits_wide <- extended_visits_clean %>%
+  transform_label_custom("phase") %>%
+  mutate(val = 1) %>%
+  tidyr::pivot_wider(names_from = phase, values_from = val, values_fill = 0)
+
+## now join with recordings
+model_df <- left_join(
+  sensor_data_synthetic,
+  visits_wide,
+  by = c( "patient_id", "create_date" = "date")
+)
+```
+
+
+```{r}
+model_df %>% filter(!is.na(visit_date)) %>% print(n = 25)
+```
+
+### Adding feature selection
+
+```{r}
+selected_features = weighted_FS(
+  dataset = model_df ,
+  number_of_features = 10,
+  target_type = 'mania',
+  start_column = 'pcm_LOGenergy_sma',
+  end_column = 'pcm_fftMag_mfcc_12_'
+)
+selected_features
+```
+
+### For comparative analysis, we run recursive feature elimination (RFE) as benchmark
+
+```{r}
+selected_features_rfe = ...[TODO]
+selected_features_rfe
+```

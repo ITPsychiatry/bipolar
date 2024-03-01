@@ -65,7 +65,7 @@ test_that("fit_with_function works properly", {
 
 
 cnf <- readRDS(system.file(
-  package = "bipolarPreprocessing",
+  package = "bipolar",
   file.path("testdata/auto_cnf.RDS")
 ))
 
