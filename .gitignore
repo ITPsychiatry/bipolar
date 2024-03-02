@@ -8,3 +8,5 @@ inst/doc
 /Meta/
 /vignettes/*.csv
 /.Renviron
+/inst/sample_data/mobile*.csv
+/inst/sample_data/visits*.csv
