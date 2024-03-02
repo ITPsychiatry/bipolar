@@ -4,12 +4,13 @@
 #' @import shiny
 #' @import DT
 #' @importFrom shinyWidgets pickerInput
+#' @import flextable
 #'
 #' @export
 run_shiny <- function(.port = 7777) {
   shiny::runApp(
     system.file(
-      package = "bipolarPreprocessing",
+      package = "bipolar",
       file.path("shiny", "app.R")
     ),
     port = .port,

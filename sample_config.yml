@@ -1,0 +1,10 @@
+# This is the configuration file of bipolar package.
+# Here You can define paths to Your input and output directories.
+
+# Windows example
+inputs: "C:/Users/Dell/Documents/_Data_repository/bipolar_preprocessing/inputs"
+outputs: "C:/Users/Dell/Documents/_Data_repository/bipolar_preprocessing/outputs"
+
+# Unix example
+# inputs: /path/to/your/inputs
+# outputs: /path/to/your/outputs

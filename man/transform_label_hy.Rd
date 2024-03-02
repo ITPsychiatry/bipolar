@@ -18,6 +18,6 @@ dataset
 Transform column into hamilton/young label
 }
 \examples{
-visits <- get_sample_visits()
+visits <- get_sample_psychiatric_data()
 transform_label_hy(visits, "hamd_suma")
 }

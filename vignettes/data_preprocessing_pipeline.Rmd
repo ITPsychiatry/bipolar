@@ -18,7 +18,7 @@ knitr::opts_chunk$set(
 This is an example data preprocessing pipeline. We demonstrate how to preprocess source data in order to use it in modeling part.
 
 ```{r}
-library(bipolarPreprocessing)
+library(bipolar)
 library(dplyr)
 ```
 
@@ -110,7 +110,7 @@ callings #Now we have: dw_mobilerecording_id patient_id create_date and aggregat
 
 ```{r}
 set.seed(123)
-library(bipolarPreprocessing)
+library(bipolar)
 visits <- get_sample_visits()
 visits$visit_date <- as.Date(visits$visit_date)
 

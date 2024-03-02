@@ -2,6 +2,10 @@ patients_view_ui <- function(id) {
   ns <- NS(id)
 
   tagList(
+    div(
+      class = "upload-csv-container",
+      upload_csv_file_ui(ns("visits"), .label = "Load psychiatric data:")
+    ),
     pickerInput(ns("sel_patient"),
                 label = "Please select a patient:",
                 choices = c(),
@@ -11,12 +15,15 @@ patients_view_ui <- function(id) {
   )
 }
 
-
-patients_view <- function(id, visits_data = reactive(), calls_data = reactive()) {
+patients_view <- function(id ) {
   moduleServer(
     id,
     function(input, output, session) {
       ns <- session$ns
+      uploaded_data <- reactiveVal()
+
+      visits_data <- upload_csv_file("visits")
+
 
       filter_dataset <- function(dataset, filter_value) {
         d <- Filter(function(x) x$patient_id == filter_value, dataset)
@@ -24,24 +31,28 @@ patients_view <- function(id, visits_data = reactive(), calls_data = reactive())
       }
 
       observeEvent(visits_data(), {
+        print(visits_data())
+        uploaded_data(visits_data())
+      })
+
+
+
+      observeEvent(uploaded_data(), {
         updatePickerInput(
           session,
           inputId = "sel_patient",
-          choices = sapply(visits_data(), `[[`, "patient_id") |> sort()
+          choices =  unique(uploaded_data()$patient_id)
         )
       })
 
-      selected_patient_visits <- eventReactive(c(input$sel_patient, visits_data()), {
-        filter_dataset(visits_data(), input$sel_patient)
-      })
-      selected_patient_calls <- eventReactive(c(input$sel_patient, calls_data()), {
-        filter_dataset(calls_data(), input$sel_patient)
+      selected_patient_visits <- eventReactive(c(input$sel_patient, uploaded_data()), {
+        req(uploaded_data(), input$sel_patient)
+        uploaded_data() %>% filter(patient_id == input$sel_patient)
       })
 
       # server part
       patient_data("patients_details",
-                   module_data = selected_patient_visits,
-                   calls_data = selected_patient_calls)
+                   module_data = selected_patient_visits)
     }
   )
 }
@@ -49,58 +60,50 @@ patients_view <- function(id, visits_data = reactive(), calls_data = reactive())
 #### Submodules: ----
 patient_data_ui <- function(id) {
   ns <- NS(id)
-  uiOutput(ns("ui_details"))
+  render_details(
+    "Visits History:",
+    tabsetPanel(
+      id = ns("visit_history"),
+      tabPanel(
+        "Table",
+        div(class = "table-container", DT::dataTableOutput(ns("dt_visits_history")))
+      ),
+      tabPanel(
+        "Graph",
+        div(class = "plot-container", plotly::plotlyOutput(ns("plot_visits_history")))
+      )
+    )
+  )
 }
 
 
-patient_data <- function(id, module_data = reactive(), calls_data = reactive()) {
+patient_data <- function(id, module_data = reactive() ) {
   moduleServer(
     id,
     function(input, output, session) {
-      ns <- session$ns
-
-      output$ui_details <- renderUI({
-        req(module_data())
-
-        div(
-          tags$details(
-            class = "patient-section",
-            tags$summary(h4("Visits History:")),
-            div(class = "table-container", DT::dataTableOutput(ns("dt_visits_history")))
-          ),
-          div(
-            class = "patient-section",
-            h4("Comments:"),
-            helpText("Lorem ipsum dolor sit amet")
-          ),
-          tags$details(
-            class = "patient-section",
-            tags$summary(h4("Mobile Calls")),
-            div(class = "table-container", DT::dataTableOutput(ns("dt_calls_history")))
-          ),
-          div(
-            class = "patient-section",
-            h4("Mobile Calls Summary"),
-            helpText("Lorem ipsum dolor sit amet")
-          )
-        )
-      })
-
       output$dt_visits_history <- DT::renderDataTable({
         validate(
           need(module_data(), "No visits to display")
         )
+        selected_cols <- c('patient_id' , 'visit_date', 'hamd_suma', 'yms_suma', 'hamd_ymrs')
+        module_data() %>% select(any_of(selected_cols))
 
-        module_data()$visits
       })
 
-      output$dt_calls_history <- DT::renderDataTable({
+      output$plot_visits_history <- plotly::renderPlotly({
         validate(
-          need(calls_data(), "No calls to display")
+          need(module_data(), "No visits data for plotting")
         )
+        p <- ggplot2::ggplot(module_data(), aes(x = visit_date, y = hamd_ymrs, label = hamd_ymrs)) +
+          geom_point() +
+          geom_text(aes(label = paste(hamd_ymrs, paste0("HAMD: ",hamd_suma), paste0("YMS: ",yms_suma), paste0("DATE: ",as.Date(visit_date)),
+                                      sep = "\n")), nudge_y = 0.2 ) +
+          ggtitle("Visits History Over Time")
 
-        calls_data()$calls
+        plotly::ggplotly(p, tooltip = "text")
       })
+
+
     }
   )
 }

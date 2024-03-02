@@ -18,6 +18,6 @@ dataset
 Transform column into cgi label
 }
 \examples{
-visits <- get_sample_visits()
+visits <- get_sample_psychiatric_data()
 transform_label_cgi(visits, "hamd_ymrs")
 }

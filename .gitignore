@@ -10,3 +10,7 @@ inst/doc
 /.Renviron
 /inst/sample_data/mobile*.csv
 /inst/sample_data/visits*.csv
+
+/inputs
+/outputs
+config.y*ml

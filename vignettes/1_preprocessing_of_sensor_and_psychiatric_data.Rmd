@@ -1,0 +1,218 @@
+---
+title: "2. Preprocessing of data from sensors and psychiatric assessments"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{2. Preprocessing of data from sensors and psychiatric assessments}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>",
+  message = FALSE,
+  warning = FALSE
+)
+```
+
+## Overview
+
+In this vignette we're going to show an example workflow of data preprocessing. We'll start with a toy dataset which is fully synthetic and consist of two elements:
+ 
+- psychiatric data - e.g., when a patient visited a psychiatrist
+
+- sensor data - e.g., describing voice parameters extracted from mobile calls
+
+Our goal is to extrapolate the state from a visit date to a wider time window. We'd also like to quantify the confidence of our extrapolation. We're going to use dedicated functions from the package to make it.
+
+## Create the toy data set
+
+Let's read libraries we need
+
+```{r setup}
+library(bipolar)
+library(ggplot2)
+```
+
+Next, let's create the datasets.
+
+```{r}
+set.seed(123)
+df <- create_toy_dataset()
+visits <- df$visits
+recordings <- df$recordings
+```
+
+Let's take a look a the _visits_ data frame. There are columns *phases*, *visit_date*, *patient_id* and *visit_id*. The *phases* column holds information about patient's state on a particular day, e.g. *depression*.
+
+_recordings_ data frame contains three call parameters - *x1, x2* and *x3* variables - as well as the id of a patient and the date when the call took place.
+
+### Configuration of time window extrapolation
+
+We'd like to extrapolate the information of a patient's state to adjacent days before and after a visit with a psychiatrist. A convenient way to do this is by creating a config file that defines time ranges around a visit date for each phase. The `create_time_window_config` function is designed to do this. By default, it creates a time window of 7 days before and 2 days after a visit.
+
+```{r}
+auto_config <- create_time_window_config(visits, phases)
+auto_config
+```
+
+As the result we get *phase* and time ranges. In our example every phase has the same time window definition, but it can be adjusted to reflect different scenarios.
+
+
+## Confidence
+
+We're going to model how confident we are when extrapolating the actual patient's state on the time range we defined. For example, we may assume that we are most certain about the state in day 0, i.e. the visit day. Moving away from the visit day our confidence may decrease. This is one of possible scenarios. Another possibility is to treat the whole time window as equally certain, so in the range of -7 to 2 days around the visit day our confidence about the state is the same. We also need a way to quantify it somehow.
+
+There's a function in our package - `add_confidence` - which we use to enhance our data with confidence. The confidence is expressed as a number between 0 and 1.
+
+Here are some examples how this function can be used, for details please refer to its help file:
+
+```{r}
+# constant:
+auto_config %>% add_confidence(values = .5)
+auto_config %>% add_confidence(values = .5, normalize = FALSE)
+# steps:
+auto_config %>% add_confidence(values = c(0.5, 0.5, 0.7, 0.7, 1, 1, 1,1,1,1))
+# Gaussian density function:
+gauss <- auto_config %>% add_confidence(func = dnorm)
+```
+
+`add_confidence(values = .5)` adds a constant confidence value of 0.5, but by default the function will normalize the confidence so the maximum value is 1. You can compare the output with the second example.
+
+The last example shows that we may fit time windows with functions, e.g. gaussian density function. By default it will be centered at 0 (the day of a visit).
+
+```{r echo=FALSE}
+ggplot(
+  data = gauss,
+  aes(x = time_point, y = confidence)
+) +
+  geom_point() +
+  geom_line() +
+  facet_wrap(facets = "phase")
+```
+
+
+Next, we'll apply this information to our original *visits* data.
+
+```{r}
+config_with_confidence <- auto_config %>% add_confidence(func = dnorm)
+extended_visits <- expand_ground_truth_period(
+  d = visits,
+  config = auto_config,
+  phases_col = phases,
+  visit_date_col = visit_date,
+  patient_id_col = patient_id
+)
+extended_visits_clean <- transform_overlapping_phases(extended_visits, config_with_confidence)
+```
+
+Please notice the use of another two functions, namely `expand_ground_truth_period` and `transform_overlapping_phases`. The first one simply add confidence to *visits* data frame. The other is useful in case there are two visits close to each other and their time windows overlap. See the help for details about how it's implemented.
+
+## Combining all together
+
+Now we're ready to incorporate our confidence into the *recordings* data:
+
+```{r}
+# First, transform visits with expanded time window into wider form
+visits_wide <- extended_visits_clean %>%
+  mutate(val = 1) %>%
+  tidyr::pivot_wider(names_from = phase, values_from = val, values_fill = 0)
+
+
+# now join with recordings
+model_df <- left_join(
+  recordings,
+  visits_wide,
+  by = c("date", "patient_id")
+) %>% arrange(patient_id, date, visit_date)
+
+# preview the data:
+model_df %>%
+  filter(between(date, as.Date("2022-04-17"), as.Date("2022-05-01")), patient_id == 23) %>%
+  print(n = 25)
+```
+
+The resulting data frame can be further used in a modeling pipeline, e.g. feature engineering and selection etc.
+
+This is an example data preprocessing pipeline. We demonstrate how to preprocess source data in order to use it in modeling part.
+
+```{r}
+library(dplyr)
+```
+
+
+### Get sample data
+
+```{r}
+visits <- get_sample_psychiatric_data()
+mobile_recordings <- get_sample_sensor_data()
+```
+
+### Dates
+
+Data collected before 2018 is unreliable due to a bug in the library that was used to collect all the parameters of a call. We'll work only with data from 2018.
+
+```{r}
+visits <- visits %>%
+  filter(visit_date >= "2018-01-01")
+mobile_recordings <- mobile_recordings %>%
+  filter(create_date >= "2018-01-01")
+```
+We don't filter `mobile_chunks` as it's not clear when the data was recorded. Instead, we'll use corresponding rows from `mobile_recordings` dataset to get only valid rows by joining the datasets together.
+
+
+### Prepare datasets for further analysis
+
+## Calculate aggregates
+
+```{r}
+sample_call_parameters <- intersect(get_sample_call_parameters(), colnames(mobile_recordings))
+
+stats <- tryCatch({
+  mobile_recordings %>% 
+    tidyr::nest(data = -patient_id) %>% 
+    mutate(stats = lapply(data, function(i) {
+      i %>%
+        select(all_of(sample_call_parameters)) %>% 
+        summarise(across(sample_call_parameters, list(
+          mean = ~mean(.x, na.rm = TRUE),
+          sd = ~sd(.x, na.rm = TRUE)
+        ),
+        .names = "{.col}_{.fn}"
+      ))
+    }))
+})
+
+stats <- stats %>% 
+  select(patient_id , stats) %>% 
+  tidyr::unnest(cols = c(stats))  %>% 
+  select(patient_id, ends_with("mean"), ends_with("sd"))
+
+stats
+```
+
+
+## Final dataset preperation 
+
+### Joining with visits
+
+```{r}
+set.seed(123)
+#Setting LABEL
+visits <-  transform_label_custom(visits , 'hamd_ymrs')
+
+auto_config <- create_time_window_config(visits, hamd_ymrs)
+auto_config
+```
+
+
+```{r}
+
+# examples
+auto_config %>% add_confidence(values = .5)
+auto_config %>% add_confidence(values = .5, normalize = FALSE)
+auto_config %>% add_confidence(values = c(0.5, 0.5, 0.7, 0.7, 1, 1, 1,1,1,1))
+gauss <- auto_config %>% add_confidence(func = dnorm)
+plot(gauss$time_point, gauss$confidence, type = "b")
+```

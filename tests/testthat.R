@@ -7,6 +7,6 @@
 # * https://testthat.r-lib.org/reference/test_package.html#special-files
 
 library(testthat)
-library(bipolarPreprocessing)
+library(bipolar)
 
-test_check("bipolarPreprocessing")
+test_check("bipolar")

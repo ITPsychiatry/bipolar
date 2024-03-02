@@ -38,7 +38,7 @@ New rows will be added for every combination of phase and visit date.
 set.seed(123)
 df <- create_toy_dataset()
 visits <- df$visits
-auto_config <- auto_create_phases_config(visits, phases)
+auto_config <- create_time_window_config(visits, phases)
 
 #insert new rows for each record
 expand_ground_truth_period(df, auto_config, phases, visit_date)

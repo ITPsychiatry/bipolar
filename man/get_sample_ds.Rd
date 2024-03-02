@@ -2,24 +2,30 @@
 % Please edit documentation in R/utils.R
 \name{get_sample_csv}
 \alias{get_sample_csv}
-\alias{get_sample_visits}
+\alias{get_sample_one_patient_psychiatric_data}
 \alias{get_all_visits}
 \alias{get_sample_aggregated_data}
-\alias{get_sample_mobile_recordings}
-\alias{get_sample_mobile_chunks}
+\alias{get_sample_sensor_data}
+\alias{get_sample_psychiatric_data}
+\alias{get_sample_one_patient_sensor_data_recordings}
+\alias{get_sample_one_patient_sensor_data_chunks}
 \title{Read sample dataset}
 \usage{
-get_sample_csv(dataset_name)
+get_sample_csv(dataset_name, delim = ";", ...)
 
-get_sample_visits()
+get_sample_one_patient_psychiatric_data()
 
 get_all_visits()
 
 get_sample_aggregated_data()
 
-get_sample_mobile_recordings()
+get_sample_sensor_data()
 
-get_sample_mobile_chunks()
+get_sample_psychiatric_data()
+
+get_sample_one_patient_sensor_data_recordings()
+
+get_sample_one_patient_sensor_data_chunks()
 }
 \arguments{
 \item{dataset_name}{character;}

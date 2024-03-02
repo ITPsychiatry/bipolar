@@ -18,6 +18,6 @@ data.frame
 Transforms column into label with healthy-unhealthy values
 }
 \examples{
-visits <- get_sample_visits()
+visits <- get_sample_psychiatric_data()
 transform_label_healthy_unhealthy(visits, "hamd_ymrs")
 }

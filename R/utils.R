@@ -3,12 +3,13 @@
 #' @param dataset_name character;
 #' @return tibble
 #' @rdname get_sample_ds
-get_sample_csv <- function(dataset_name) {
+get_sample_csv <- function(dataset_name, delim = ";", ...) {
   tryCatch(
-    readr::read_csv(
-      system.file(
+    readr::read_delim(
+      delim = delim, escape_double = FALSE, trim_ws = TRUE,
+      file = system.file(
         file.path("sample_data", dataset_name),
-        package = "bipolarPreprocessing"
+        package = "bipolar"
       )
     ),
     error = function(err) {
@@ -21,14 +22,15 @@ get_sample_csv <- function(dataset_name) {
 #' @rdname get_sample_ds
 #' @family get_sample_data
 #' @export
-get_sample_visits <- function() {
-  get_sample_csv("visits1472.csv")
+get_sample_one_patient_psychiatric_data <- function() {
+  get_sample_csv("one_patient_psychiatric_data.csv", delim = ",")
 }
 
 
 #' @rdname get_sample_ds
 #' @family get_sample_data
 #' @export
+#'
 get_all_visits <- function() {
   file_path <- file.path(
     Sys.getenv("DATA_REPO"),
@@ -42,6 +44,7 @@ get_all_visits <- function() {
 #' @rdname get_sample_ds
 #' @family get_sample_data
 #' @export
+#'
 get_sample_aggregated_data <- function() {
   file_path <- file.path(
     Sys.getenv("DATA_REPO"),
@@ -52,11 +55,28 @@ get_sample_aggregated_data <- function() {
 
 #' @rdname get_sample_ds
 #' @family get_sample_data
+#' @export
+#'
+get_sample_sensor_data <- function() {
+  sensor_data <- get_sample_csv("sensor_data_synthetic.csv")
+}
+
+#' @rdname get_sample_ds
+#' @family get_sample_data
+#' @export
+#'
+get_sample_psychiatric_data <- function() {
+  psychiatric_data <- get_sample_csv("psychiatric_data_synthetic.csv")
+}
+
+#' @rdname get_sample_ds
+#' @family get_sample_data
 #' @importFrom dplyr %>% mutate
 #' @importFrom rlang .data
 #' @export
-get_sample_mobile_recordings <- function() {
-  mobile_recordings <- get_sample_csv("mobilerecording.csv")
+get_sample_one_patient_sensor_data_recordings <- function() {
+  mobile_recordings <- get_sample_csv("one_patient_sensor_data_recordings.csv",
+                                      delim = ",")
 
   m_recs_repaired <- mobile_recordings
   # create date as date: ----
@@ -77,8 +97,9 @@ get_sample_mobile_recordings <- function() {
 #' @rdname get_sample_ds
 #' @family get_sample_data
 #' @export
-get_sample_mobile_chunks <- function() {
-  mobile_chunks <- get_sample_csv("mobilerecordingschunks.csv")
+get_sample_one_patient_sensor_data_chunks <- function() {
+  mobile_chunks <- get_sample_csv("one_patient_sensor_data_chunks.csv",
+                                  delim = ",")
 
   m_chunks <- mobile_chunks
   cols <- colnames(m_chunks)

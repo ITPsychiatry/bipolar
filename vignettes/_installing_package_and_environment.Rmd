@@ -1,0 +1,133 @@
+---
+title: "1. Installing _bipolar_ package and environment"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{1. Installing _bipolar_ package and environment}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>",
+  message = FALSE,
+  warning = FALSE
+)
+```
+
+## Overview
+
+This vignette shows how to install *bipolar* package and its dependences and how to configure environment to get started working with it.
+Make sure you are operating on R 4.3.1 version or newer.
+
+## Installation
+
+We assume users are familiar with RStudio and it's installed on user's machine.
+
+## 1. Clone the repository
+
+```         
+git clone <url-of-the-final-repository>
+cd bipolar
+```
+
+## 2. Build this bipolar package
+
+We recommend to use `devtools` to install the package. If not already installed in Your R library, install it:
+
+-   open the project in RStudio
+-   run the following command in the console:
+
+```         
+install.packages("devtools")
+```
+
+Next, install the *ssfclust* and *bipolar* packages (in this order):
+
+```  
+devtools::install_github("ITPsychiatry/ssfclust@refactor")
+devtools::install()
+```
+
+If you prefer, you can also install the package directly from github. Then run in your R terminal the following command:
+
+```         
+remotes::install_github("https://github.com/ITPsychiatry/bipolar",
+                        auth_token = <your_token>)
+```
+
+## 3. Configure Your environment 
+
+All Your experiments, i.e. different parameter sets, datasets etc. should be stored in one place so it will be easy to find and compare resulting models. On the other hand, You'd expect loading results should be equally easy.
+
+_bipolar_ package uses two directories - INPUTS and OUTPUTS - to achieve this. INPUTS is the recommended location where all Your input data will reside. OUTPUTS is a directory to store experiment results. Configuration is extremely easy:
+
+```{r eval=FALSE}
+library(bipolar)
+configuration <- create_bipolar_config()
+```
+
+<details>
+  <summary>More</summary>
+  The code above will create the two directories on Your disk in a default location. The current working directory will be used as default. If You want to change the default location for INPUTS and OUTPUTS You may use the code like this:
+
+```{r eval=FALSE}
+configuration <- create_bipolar_config(
+  # Here place the expected path for your results
+  # c:/Users/user/Documents/bipolar/inputs/
+  inputs = "../inputs/",
+  outputs = "../outputs/"
+)
+```
+</details>
+
+## 4. Save the configuration to disk
+
+```{r eval=FALSE}
+save_bipolar_config(configuration, path = "config.yml")
+```
+
+<details>
+  <summary>More</summary>
+You may save the configuration on Your disk and load it every time You start playing with _bipolar_.
+
+```{r eval=FALSE}
+save_bipolar_config(configuration, path = "config.yml")
+```
+
+where `configuration` is the same object created before, and `path` is the path to the output file. In the example above a new configuration file will be created in the current directory and the file will be named as `config.yml`. YAML format is a convenient way of storing any kind of configuration data, the format is commonly used. Please, go ahead and see the file and its structure. You can notice it's a very simple structure with two keys: `inputs` and `outputs` pointing to directories on Your disk.
+</details>
+
+## 5. When You start working with _bipolar_ read the configuration back again:
+
+```{r eval=FALSE}
+read_bipolar_config(path = "config.yml")
+```
+
+You can use `save_output` function from _bipolar_ package to store any results from Your experiments. Please, see help for detailed explanation.
+
+```{r eval=FALSE}
+save_output(my_experiment_results, name = "Experiment-1")
+```
+
+You can load previously stored results very easy:
+
+```{r eval=FALSE}
+list_results() # This will list all Your results stored in the OUTPUTS directory
+load_results(<your_result_name>)
+```
+
+## 6. Illustrative use cases to run
+More on experimentation may be found in other vignettes. The following five vignettes illustrate basic functionalities of the package on examples:
+
+_1_preprocessing_of_sensor_and_psychiatric_data.Rmd_
+
+_2_aggregating_voice_recordings.Rmd_
+
+_3_uncertainty_aware_feature_selection.Rmd_
+
+_4_validation_of_semi_sueprvised_fuzzy_clustering.Rmd_
+
+_5_view_dashboards_with_modeling_outputs.Rmd_
+
