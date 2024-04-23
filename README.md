@@ -1,6 +1,6 @@
-# Mobile recordings preprocessing
+# Sensor and psychiatric data joint processing
 
-This repository contains code and sample data for demonstration purposes on how mobile data can be pre-processed in order to use it in modeling later on. The modeling process itself is out of the scope of this project.
+This repository contains code and sample data for demonstration purposes on how sensor data can be pre-processed and integrated with psychiatric data in order to use it in modeling later on. The semi-supervised modeling process itself is contained in the `ssfclust' package.
 
 ## Installation
 
